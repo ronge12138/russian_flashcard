@@ -376,6 +376,17 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
       <button class="settings-save-btn" onclick="saveSettings()">保存设置</button>
     </div>
     <div class="settings-section">
+      <div class="section-title">📁 词库分类管理</div>
+      <div id="cat-list"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input class="settings-input" id="new-cat-input"
+          placeholder="输入新分类名称，如：影视词汇"
+          style="margin-bottom:0;flex:1">
+        <button class="settings-save-btn" onclick="addCategory()"
+          style="flex-shrink:0">＋ 添加</button>
+      </div>
+    </div>
+    <div class="settings-section">
       <div class="section-title">ℹ️ 关于</div>
       <div class="about-card">
         <div class="about-row"><span>应用名称</span><span>俄语闪卡 Русский</span></div>
@@ -709,7 +720,7 @@ function renderResult() {
       <div class="example-ru">${ru}</div>
       <div class="example-zh">${r.examplesZh[i]||''}</div>
     </div>`).join('');
-  const chips = Object.entries(CATEGORIES).map(([k,v]) =>
+  const chips = Object.entries(getAllCategories()).map(([k,v]) =>
     `<div class="chip ${selectedCategory===k?'selected':''}" onclick="selectCat('${k}')">${v}</div>`
   ).join('');
 
@@ -751,12 +762,70 @@ async function saveWord() {
 }
 
 // ══════════════════════════════════════════════════════
+//  自定义词库分类管理
+// ══════════════════════════════════════════════════════
+const DEFAULT_CATS = {
+  custom:'📁 自定义', daily:'💬 日常用语',
+  travel:'✈️ 旅行', business:'💼 商务', grammar:'📖 语法词',
+};
+function getAllCategories() {
+  const custom = JSON.parse(localStorage.getItem('custom_cats') || '{}');
+  return { ...DEFAULT_CATS, ...custom };
+}
+function renderCatList() {
+  const custom = JSON.parse(localStorage.getItem('custom_cats') || '{}');
+  const list = document.getElementById('cat-list');
+  if (!list) return;
+  let html = '<div style="margin-bottom:8px;color:var(--muted);font-size:12px">默认分类（不可删除）</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">';
+  Object.values(DEFAULT_CATS).forEach(v => {
+    html += `<div class="chip selected" style="cursor:default">${v}</div>`;
+  });
+  html += '</div>';
+  if (Object.keys(custom).length > 0) {
+    html += '<div style="margin-bottom:8px;color:var(--muted);font-size:12px">自定义分类</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    Object.entries(custom).forEach(([k,v]) => {
+      html += `<div style="display:flex;align-items:center;gap:6px;background:rgba(92,133,214,0.15);border:1px solid rgba(92,133,214,0.3);border-radius:20px;padding:6px 10px 6px 14px;font-size:13px;color:var(--accent)"><span>${v}</span><button onclick="deleteCategory('${k}')" style="background:none;border:none;color:var(--btn-hard);font-size:16px;cursor:pointer;line-height:1;padding:0 2px">×</button></div>`;
+    });
+    html += '</div>';
+  } else {
+    html += '<div style="color:var(--muted);font-size:13px;padding:8px 0">暂无自定义分类</div>';
+  }
+  list.innerHTML = html;
+}
+function addCategory() {
+  const input = document.getElementById('new-cat-input');
+  const name = input.value.trim();
+  if (!name) { showToast('请输入分类名称'); return; }
+  if (name.length > 12) { showToast('名称不超过12个字'); return; }
+  const custom = JSON.parse(localStorage.getItem('custom_cats') || '{}');
+  const key = 'cat_' + Date.now();
+  const emojis = ['🌟','📝','🎯','💡','🔥','📌','🎪','🌈'];
+  const emoji = emojis[Object.keys(custom).length % emojis.length];
+  custom[key] = emoji + ' ' + name;
+  localStorage.setItem('custom_cats', JSON.stringify(custom));
+  input.value = '';
+  renderCatList();
+  showToast(`「${emoji} ${name}」已创建 ✅`);
+}
+function deleteCategory(key) {
+  const custom = JSON.parse(localStorage.getItem('custom_cats') || '{}');
+  const name = custom[key];
+  if (!confirm(`确定删除「${name}」？\n单词不会被删除`)) return;
+  delete custom[key];
+  localStorage.setItem('custom_cats', JSON.stringify(custom));
+  renderCatList();
+  showToast(`已删除「${name}」`);
+}
+// ══════════════════════════════════════════════════════
 //  设置
 // ══════════════════════════════════════════════════════
 function loadSettings() {
   document.getElementById('cfg-apikey').value  = localStorage.getItem('cfg_apikey')  || '';
   document.getElementById('cfg-baseurl').value = localStorage.getItem('cfg_baseurl') || 'https://api.deepseek.com';
   document.getElementById('cfg-model').value   = localStorage.getItem('cfg_model')   || 'deepseek-chat';
+  renderCatList();
 }
 
 function saveSettings() {
