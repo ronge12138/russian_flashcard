@@ -59,46 +59,42 @@ jobs:
             "$PROJECT"
           echo "✅ pbxproj patched"
 
-      - name: Build iOS DEBUG mode
+      - name: Build iOS profile mode (real device)
         run: |
           flutter build ios \
-            --debug \
+            --profile \
             --no-codesign \
-            --no-tree-shake-icons \
-            --simulator
+            --no-tree-shake-icons
         env:
           CODE_SIGNING_ALLOWED: NO
           CODE_SIGNING_REQUIRED: NO
           CODE_SIGN_IDENTITY: ""
 
-      - name: Locate Runner.app
-        run: |
-          echo "=== 搜索所有 .app ==="
-          find build -name "*.app" -type d 2>/dev/null || true
-
       - name: Ad-hoc sign all frameworks
         run: |
           APP_PATH=$(find build -name "Runner.app" -type d | head -1)
           echo "App: $APP_PATH"
+          ls -la "$APP_PATH/Frameworks/" 2>/dev/null || echo "no Frameworks dir"
 
           if [ -d "$APP_PATH/Frameworks" ]; then
             find "$APP_PATH/Frameworks" -name "*.framework" -type d | \
             while read fw; do
-              echo "签名: $fw"
-              codesign --force --sign - \
-                --preserve-metadata=entitlements,identifier \
-                "$fw" 2>&1 || true
+              echo "签名 framework: $fw"
+              codesign --force --deep --sign - "$fw" 2>&1 || true
             done
           fi
 
           find "$APP_PATH" -name "*.dylib" 2>/dev/null | \
           while read lib; do
+            echo "签名 dylib: $lib"
             codesign --force --sign - "$lib" 2>&1 || true
           done
 
-          codesign --force --sign - "$APP_PATH" 2>&1 || true
-          echo "✅ 签名完成"
-          codesign -dv "$APP_PATH" 2>&1 | head -5 || true
+          echo "签名主 App..."
+          codesign --force --deep --sign - "$APP_PATH" 2>&1 || true
+
+          echo "=== 验证 ==="
+          codesign -dv "$APP_PATH" 2>&1 | head -3 || true
 
       - name: Package IPA
         run: |
