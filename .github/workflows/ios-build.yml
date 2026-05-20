@@ -44,46 +44,51 @@ jobs:
       - name: Generate Isar code
         run: dart run build_runner build --delete-conflicting-outputs
 
+      - name: Patch Podfile
+        run: |
+          cat >> ios/Podfile << 'PODEOF'
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['CODE_SIGNING_ALLOWED']       = 'NO'
+      config.build_settings['CODE_SIGNING_REQUIRED']      = 'NO'
+      config.build_settings['CODE_SIGN_IDENTITY']         = ''
+      config.build_settings['DEVELOPMENT_TEAM']           = ''
+      config.build_settings['SWIFT_VERSION']              = '5.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+    end
+  end
+end
+PODEOF
+          echo "Podfile patched"
+
       - name: Install CocoaPods dependencies
         run: |
           cd ios
           pod install --repo-update
           cd ..
 
-      - name: Patch project for unsigned build
+      - name: Patch pbxproj
         run: |
           PROJECT="ios/Runner.xcodeproj/project.pbxproj"
-
-          # 注入假 Team ID 骗过 Flutter 的 Team 检查
           sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' "$PROJECT"
           sed -i '' 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' "$PROJECT"
-
-          # 如果没有 DEVELOPMENT_TEAM 字段则追加（针对部分项目结构）
-          if ! grep -q "DEVELOPMENT_TEAM" "$PROJECT"; then
+          grep -q "DEVELOPMENT_TEAM" "$PROJECT" || \
             sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER/DEVELOPMENT_TEAM = "FAKETEAMID1";\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' "$PROJECT"
-          fi
-
-          # 禁用签名验证
-          sed -i '' 's/CODE_SIGN_IDENTITY = ".*";/CODE_SIGN_IDENTITY = "-";/g' "$PROJECT"
-          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = ".*";/PROVISIONING_PROFILE_SPECIFIER = "";/g' "$PROJECT"
-
-          echo "=== 验证 patch 结果 ==="
-          grep -n "DEVELOPMENT_TEAM\|CODE_SIGN" "$PROJECT" | head -20
+          echo "pbxproj patched"
+          grep "DEVELOPMENT_TEAM" "$PROJECT" | head -5
 
       - name: Build iOS no codesign
-        run: |
-          flutter build ios \
-            --release \
-            --no-codesign
+        run: flutter build ios --release --no-codesign
         env:
           CODE_SIGNING_ALLOWED: NO
           CODE_SIGNING_REQUIRED: NO
-          CODE_SIGN_IDENTITY: "-"
+          CODE_SIGN_IDENTITY: ""
 
       - name: Locate Runner.app
-        run: |
-          echo "=== 搜索 Runner.app ==="
-          find build -name "Runner.app" -type d 2>/dev/null || true
+        run: find build -name "Runner.app" -type d 2>/dev/null || true
 
       - name: Package unsigned IPA
         run: |
