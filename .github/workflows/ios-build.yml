@@ -57,24 +57,34 @@ jobs:
           sed -i '' 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' "$PROJECT"
           grep -q "DEVELOPMENT_TEAM" "$PROJECT" || sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER/DEVELOPMENT_TEAM = "FAKETEAMID1";\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' "$PROJECT"
           echo "pbxproj patched"
-          grep "DEVELOPMENT_TEAM" "$PROJECT" | head -5
 
       - name: Build iOS no codesign
-        run: flutter build ios --release --no-codesign
+        run: |
+          flutter build ios \
+            --release \
+            --no-codesign \
+            --no-tree-shake-icons \
+            --dart-define=FLUTTER_WEB_CANVASKIT_URL=canvaskit/
         env:
           CODE_SIGNING_ALLOWED: NO
           CODE_SIGNING_REQUIRED: NO
           CODE_SIGN_IDENTITY: ""
 
-      - name: Locate Runner.app
-        run: find build -name "Runner.app" -type d 2>/dev/null || true
+      - name: Verify App bundle contents
+        run: |
+          APP_PATH=$(find build -name "Runner.app" -type d | head -1)
+          echo "=== App bundle 内容 ==="
+          ls -la "$APP_PATH"
+          echo "=== Frameworks ==="
+          ls -la "$APP_PATH/Frameworks" 2>/dev/null || echo "无 Frameworks 目录"
+          echo "=== flutter_assets ==="
+          ls "$APP_PATH/flutter_assets" 2>/dev/null || echo "无 flutter_assets"
 
       - name: Package unsigned IPA
         run: |
           APP_PATH=$(find build -name "Runner.app" -type d | head -1)
           if [ -z "$APP_PATH" ]; then
             echo "找不到 Runner.app"
-            find build -type d | head -30
             exit 1
           fi
           echo "找到：$APP_PATH"
