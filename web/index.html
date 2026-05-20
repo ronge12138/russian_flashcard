@@ -563,11 +563,16 @@ function renderCard() {
 }
 
 function buildCardHTML(c) {
-  const examples = c.examplesRu.map((ru, i) => `
-    <div class="example">
-      <div class="example-ru">${ru}</div>
+  const examples = c.examplesRu.map((ru, i) => {
+    const cleanRu = ru.replace(/\u0301/g, '');
+    return `<div class="example">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div class="example-ru" style="flex:1">${ru}</div>
+        <button onclick="event.stopPropagation();speak('${cleanRu}')" style="background:none;border:none;color:var(--accent);font-size:15px;cursor:pointer;flex-shrink:0;opacity:0.8">🔊</button>
+      </div>
       <div class="example-zh">${c.examplesZh[i] || ''}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   return `
   <div class="card-scene" id="card-scene">
@@ -718,14 +723,39 @@ async function lookupWord() {
   }
 }
 
+
+function buildFormsTable(forms) {
+  if (!forms || !forms.data || forms.data.length === 0) return '';
+  const typeLabel = {noun:'名词变格', verb:'动词变位', adj:'形容词变形'}[forms.type] || '词形变化';
+  const rows = forms.data.map(f => {
+    const clean = f.value.replace(/\u0301/g, '');
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px;padding:6px 10px;white-space:nowrap;border-bottom:1px solid var(--border)">${f.label}</td>
+      <td style="font-size:14px;padding:6px 10px;border-bottom:1px solid var(--border)">
+        <span style="color:var(--accent-light)">${f.value}</span>
+        <button onclick="speak('${clean}')" style="background:none;border:none;color:var(--accent);font-size:14px;cursor:pointer;margin-left:8px;opacity:0.8">🔊</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div style="margin-top:14px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600">${typeLabel}</div>
+    <table style="width:100%;border-collapse:collapse;background:rgba(255,255,255,0.04);border-radius:10px;overflow:hidden">${rows}</table>
+  </div>`;
+}
+
 function renderResult() {
   if (!currentResult) return;
   const r = currentResult;
-  const examples = r.examplesRu.map((ru,i) => `
-    <div class="example">
-      <div class="example-ru">${ru}</div>
+  const examples = r.examplesRu.map((ru,i) => {
+    const cleanRu = ru.replace(/\u0301/g, '');
+    return `<div class="example">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div class="example-ru" style="flex:1">${ru}</div>
+        <button onclick="speak('${cleanRu}')" style="background:none;border:none;color:var(--accent);font-size:15px;cursor:pointer;flex-shrink:0;opacity:0.8">🔊</button>
+      </div>
       <div class="example-zh">${r.examplesZh[i]||''}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const chips = Object.entries(getAllCategories()).map(([k,v]) =>
     `<div class="chip ${selectedCategory===k?'selected':''}" onclick="selectCat('${k}')">${v}</div>`
   ).join('');
@@ -741,6 +771,7 @@ function renderResult() {
       <div class="divider"></div>
       <div class="result-meaning">${r.meaning}</div>
       ${examples}
+      ${buildFormsTable(r.forms)}
     </div>
     <div class="category-label">选择词库分类</div>
     <div class="category-chips" id="cat-chips">${chips}</div>
