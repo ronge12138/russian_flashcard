@@ -4,24 +4,15 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="俄语单词闪卡 - 艾宾浩斯记忆法">
-
-  <!-- PWA 必要 meta -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="俄语闪卡">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0F0F1A">
-
-  <!-- 视口 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-  <!-- iOS 图标 -->
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
   <title>俄语闪卡 Русский</title>
   <link rel="manifest" href="manifest.json">
-
   <style>
     body {
       background-color: #0F0F1A;
@@ -31,28 +22,6 @@
   </style>
 </head>
 <body>
-  <script>
-    // Service Worker 注册
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('flutter-first-frame', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js');
-      });
-    }
-  </script>
-  <script src="flutter.js" defer></script>
-  <script>
-    window.addEventListener('load', function(ev) {
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        },
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp();
-          });
-        }
-      });
-    });
-  </script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
