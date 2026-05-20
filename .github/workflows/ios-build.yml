@@ -1,0 +1,194 @@
+name: 🍎 iOS Build (Unsigned)
+
+# ─────────────────────────────────────────────
+#  触发条件：push 到 main 或 master 分支时触发
+#  也支持手动在 GitHub 网页点击触发
+# ─────────────────────────────────────────────
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      note:
+        description: '备注（可选）'
+        required: false
+        default: 'Manual build'
+
+jobs:
+  build-ios:
+    name: Build Unsigned IPA
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      # ── 1. 拉取代码 ──────────────────────────
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. 配置 Java 环境 ────────────────────
+      - name: ☕ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ── 3. 安装 Flutter ──────────────────────
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+          cache-key: flutter-3.22.0-${{ runner.os }}
+
+      # ── 4. 打印环境信息（方便排错） ──────────
+      - name: 🔍 Print environment info
+        run: |
+          flutter --version
+          flutter doctor -v
+          xcodebuild -version
+          sw_vers
+
+      # ── 5. 安装 Flutter 依赖 ─────────────────
+      - name: 📦 Install Flutter dependencies
+        run: flutter pub get
+
+      # ── 6. 生成 Isar 代码 ────────────────────
+      - name: ⚙️ Generate Isar code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      # ── 7. 关闭 Xcode 自动签名（核心步骤）──
+      #  修改 project.pbxproj，将所有签名配置设为 CODE_SIGNING_ALLOWED=NO
+      - name: 🔓 Disable code signing in Xcode project
+        run: |
+          PROJECT_FILE="ios/Runner.xcodeproj/project.pbxproj"
+
+          # 禁用所有签名检查
+          sed -i '' \
+            's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = ""/g' \
+            "$PROJECT_FILE"
+
+          sed -i '' \
+            's/CODE_SIGN_IDENTITY = .*/CODE_SIGN_IDENTITY = "";/g' \
+            "$PROJECT_FILE"
+
+          sed -i '' \
+            's/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = "";/g' \
+            "$PROJECT_FILE"
+
+          sed -i '' \
+            's/PROVISIONING_PROFILE_SPECIFIER = .*/PROVISIONING_PROFILE_SPECIFIER = "";/g' \
+            "$PROJECT_FILE"
+
+          sed -i '' \
+            's/PROVISIONING_PROFILE = .*/PROVISIONING_PROFILE = "";/g' \
+            "$PROJECT_FILE"
+
+          # 追加全局禁用签名标志
+          sed -i '' \
+            's/ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;/ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;/g' \
+            "$PROJECT_FILE"
+
+          echo "✅ Code signing disabled"
+          grep -n "CODE_SIGN" "$PROJECT_FILE" | head -20
+
+      # ── 8. 核心编译命令 ──────────────────────
+      - name: 🔨 Build iOS (no codesign)
+        run: |
+          flutter build ios \
+            --release \
+            --no-codesign \
+            --verbose
+        env:
+          # 在编译环境层面也禁用签名
+          CODE_SIGNING_ALLOWED: NO
+          CODE_SIGNING_REQUIRED: NO
+          CODE_SIGN_IDENTITY: ""
+
+      # ── 9. 查找并确认 Runner.app 存在 ────────
+      - name: 🔍 Locate Runner.app
+        run: |
+          echo "=== 查找 Runner.app ==="
+          find build -name "Runner.app" -type d 2>/dev/null || true
+          ls -la build/ios/iphoneos/ 2>/dev/null || true
+          ls -la build/ios/Release-iphoneos/ 2>/dev/null || true
+
+      # ── 10. 打包成 .ipa 文件 ─────────────────
+      - name: 📦 Package into unsigned IPA
+        run: |
+          # 定位 Runner.app（兼容不同 Flutter 版本的输出路径）
+          APP_PATH=""
+          if [ -d "build/ios/iphoneos/Runner.app" ]; then
+            APP_PATH="build/ios/iphoneos/Runner.app"
+          elif [ -d "build/ios/Release-iphoneos/Runner.app" ]; then
+            APP_PATH="build/ios/Release-iphoneos/Runner.app"
+          else
+            echo "❌ 找不到 Runner.app，搜索所有路径："
+            find build -name "*.app" -type d
+            exit 1
+          fi
+
+          echo "✅ 找到 Runner.app：$APP_PATH"
+
+          # 创建 Payload 目录结构
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/Runner.app
+
+          # 打包为 .ipa（本质是 zip）
+          zip -r russian_flashcard_unsigned.ipa Payload
+
+          # 打印文件信息
+          ls -lh russian_flashcard_unsigned.ipa
+          echo "✅ IPA 打包完成"
+
+      # ── 11. 生成构建信息文件 ─────────────────
+      - name: 📝 Generate build info
+        run: |
+          cat > build_info.txt << EOF
+          ================================
+          俄语闪卡 App - 无签名构建包
+          ================================
+          构建时间: $(date '+%Y-%m-%d %H:%M:%S UTC')
+          提交 SHA:  ${{ github.sha }}
+          分支:      ${{ github.ref_name }}
+          Flutter:   3.22.0
+
+          安装方式：
+          1. Sideloadly（推荐 Windows 用户）
+             - 下载：sideloadly.io
+             - 连接 iPhone，拖入 IPA 安装
+
+          2. AltStore
+             - 需要先在手机安装 AltStore
+             - 通过 AltStore 侧载 IPA
+
+          注意：使用免费开发者账号签名的 App
+               7 天后会过期，需要重新签名。
+          ================================
+          EOF
+          cat build_info.txt
+
+      # ── 12. 上传 Artifacts ───────────────────
+      - name: ⬆️ Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: russian-flashcard-unsigned-ipa
+          path: |
+            russian_flashcard_unsigned.ipa
+            build_info.txt
+          retention-days: 30    # 保留 30 天
+          if-no-files-found: error
+
+      # ── 13. 打印成功摘要 ─────────────────────
+      - name: ✅ Build summary
+        run: |
+          echo "================================"
+          echo "✅ 编译成功！"
+          echo "================================"
+          echo "下载地址："
+          echo "GitHub → Actions → 本次 workflow → Artifacts"
+          echo "文件名：russian-flashcard-unsigned-ipa"
+          echo "================================"
+          
