@@ -26,7 +26,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          flutter-version: '3.19.6'
           channel: stable
           cache: true
 
@@ -35,18 +35,19 @@ jobs:
           flutter --version
           xcodebuild -version
 
+      - name: Disable Swift Package Manager
+        run: flutter config --no-enable-swift-package-manager
+
       - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Generate Isar code
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Generate Flutter iOS files
+      - name: Create Flutter ephemeral directories
         run: |
-          flutter precache --ios
-          cd ios
-          flutter build ios --config-only --release --no-codesign
-          cd ..
+          mkdir -p ios/Flutter/ephemeral
+          mkdir -p ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage
 
       - name: Install CocoaPods dependencies
         run: |
@@ -64,6 +65,10 @@ jobs:
 
       - name: Build iOS no codesign
         run: flutter build ios --release --no-codesign
+        env:
+          CODE_SIGNING_ALLOWED: NO
+          CODE_SIGNING_REQUIRED: NO
+          CODE_SIGN_IDENTITY: ""
 
       - name: Locate Runner.app
         run: find build -name "Runner.app" -type d 2>/dev/null || true
@@ -76,7 +81,7 @@ jobs:
           elif [ -d "build/ios/Release-iphoneos/Runner.app" ]; then
             APP_PATH="build/ios/Release-iphoneos/Runner.app"
           else
-            echo "找不到 Runner.app，搜索结果："
+            echo "找不到 Runner.app"
             find build -name "*.app" -type d
             exit 1
           fi
