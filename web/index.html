@@ -336,7 +336,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
   <div class="page-content" id="add-content">
     <div class="search-row">
       <input class="search-input" id="search-input" type="text"
-        placeholder="输入俄语单词，如 привет"
+        placeholder="输入俄语单词或中文，如 привет / 谢谢"
         onkeydown="if(event.key==='Enter')lookupWord()">
       <button class="search-btn" id="search-btn" onclick="lookupWord()">✨</button>
     </div>
@@ -660,8 +660,13 @@ const CATEGORIES = {
   custom:'📁 自定义', daily:'💬 日常用语',
   travel:'✈️ 旅行', business:'💼 商务', grammar:'📖 语法词'
 };
-const SYSTEM_PROMPT = `你是专业俄语词典助手。用户给你一个俄语单词，严格返回以下JSON，不含任何多余文字或markdown：
-{"word":"带U+0301重音符的俄语原型","phonetic":"[国际音标]","partOfSpeech":"词性缩写","meaning":"中文释义不超过20字","examples":[{"ru":"带重音的俄语例句","zh":"中文翻译"},{"ru":"第二例句","zh":"中文翻译"}]}`;
+const SYSTEM_PROMPT = `你是专业俄语词典助手。用户给你一个俄语单词或中文词汇，严格返回以下JSON，不含任何多余文字或markdown：
+{"word":"带U+0301重音符的俄语原型","phonetic":"[国际音标]","partOfSpeech":"词性缩写，如n./v./adj.","meaning":"中文释义不超过20字","examples":[{"ru":"带重音的俄语例句","zh":"中文翻译"},{"ru":"第二例句","zh":"中文翻译"}],"forms":{"type":"noun或verb或adj","data":[{"label":"标签","value":"形式"}]}}
+forms字段规则：
+- 名词(noun)：data包含[单数主格,单数生格,单数与格,单数宾格,单数工具格,单数前置格,复数主格]，label用俄语格名缩写Им./Рд./Дт./Вн./Тв./Пр./Мн.
+- 动词(verb)：data包含[原形,я,ты,он/она,мы,вы,они,过去式(阳/阴/中/复)]，label用对应人称
+- 形容词(adj)：data包含[阳性,阴性,中性,复数]，label用Муж./Жен./Ср./Мн.
+- 其他词性：forms可为null`;
 
 async function lookupWord() {
   const input = document.getElementById('search-input');
@@ -702,6 +707,7 @@ async function lookupWord() {
       meaning: json.meaning, partOfSpeech: json.partOfSpeech || '',
       examplesRu: (json.examples||[]).map(e=>e.ru),
       examplesZh: (json.examples||[]).map(e=>e.zh),
+      forms: json.forms || null,
     };
     renderResult();
   } catch(e) {
@@ -765,7 +771,7 @@ async function saveWord() {
 //  自定义词库分类管理
 // ══════════════════════════════════════════════════════
 const DEFAULT_CATS = {
-  custom:'📁 自定义', daily:'💬 日常用语',
+  custom:'📁 自定义', daily:'💬 日常',
   travel:'✈️ 旅行', business:'💼 商务', grammar:'📖 语法词',
 };
 function getAllCategories() {
@@ -897,3 +903,4 @@ init();
 </script>
 </body>
 </html>
+
