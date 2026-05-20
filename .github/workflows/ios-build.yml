@@ -30,11 +30,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Print environment info
-        run: |
-          flutter --version
-          xcodebuild -version
-
       - name: Disable Swift Package Manager
         run: flutter config --no-enable-swift-package-manager
 
@@ -55,39 +50,35 @@ jobs:
           PROJECT="ios/Runner.xcodeproj/project.pbxproj"
           sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' "$PROJECT"
           sed -i '' 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' "$PROJECT"
-          grep -q "DEVELOPMENT_TEAM" "$PROJECT" || sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER/DEVELOPMENT_TEAM = "FAKETEAMID1";\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' "$PROJECT"
-          echo "pbxproj patched"
+          grep -q "DEVELOPMENT_TEAM" "$PROJECT" || sed -i '' \
+            's/PRODUCT_BUNDLE_IDENTIFIER/DEVELOPMENT_TEAM = "FAKETEAMID1";\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' \
+            "$PROJECT"
 
-      - name: Build iOS no codesign
+      - name: Build iOS profile mode
         run: |
           flutter build ios \
-            --release \
+            --profile \
             --no-codesign \
-            --no-tree-shake-icons \
-            --dart-define=FLUTTER_WEB_CANVASKIT_URL=canvaskit/
+            --no-tree-shake-icons
         env:
           CODE_SIGNING_ALLOWED: NO
           CODE_SIGNING_REQUIRED: NO
           CODE_SIGN_IDENTITY: ""
 
-      - name: Verify App bundle contents
+      - name: Verify bundle
         run: |
           APP_PATH=$(find build -name "Runner.app" -type d | head -1)
-          echo "=== App bundle 内容 ==="
-          ls -la "$APP_PATH"
-          echo "=== Frameworks ==="
-          ls -la "$APP_PATH/Frameworks" 2>/dev/null || echo "无 Frameworks 目录"
-          echo "=== flutter_assets ==="
-          ls "$APP_PATH/flutter_assets" 2>/dev/null || echo "无 flutter_assets"
+          echo "App: $APP_PATH"
+          ls -la "$APP_PATH/Frameworks/" 2>/dev/null || echo "no Frameworks"
+          ls "$APP_PATH/flutter_assets/" 2>/dev/null | head -5
 
       - name: Package unsigned IPA
         run: |
           APP_PATH=$(find build -name "Runner.app" -type d | head -1)
           if [ -z "$APP_PATH" ]; then
-            echo "找不到 Runner.app"
+            find build -name "*.app" -type d
             exit 1
           fi
-          echo "找到：$APP_PATH"
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/Runner.app
           zip -r russian_flashcard_unsigned.ipa Payload
