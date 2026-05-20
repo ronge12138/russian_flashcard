@@ -1,0 +1,24 @@
+﻿{
+  "name": "俄语闪卡 Русский",
+  "short_name": "俄语闪卡",
+  "description": "艾宾浩斯记忆法俄语单词学习App",
+  "start_url": "/russian_flashcard/",
+  "display": "standalone",
+  "background_color": "#0F0F1A",
+  "theme_color": "#5C85D6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
