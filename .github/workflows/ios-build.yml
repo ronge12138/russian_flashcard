@@ -41,6 +41,13 @@ jobs:
       - name: Generate Isar code
         run: dart run build_runner build --delete-conflicting-outputs
 
+      - name: Generate Flutter iOS files
+        run: |
+          flutter precache --ios
+          cd ios
+          flutter build ios --config-only --release --no-codesign
+          cd ..
+
       - name: Install CocoaPods dependencies
         run: |
           cd ios
@@ -69,9 +76,11 @@ jobs:
           elif [ -d "build/ios/Release-iphoneos/Runner.app" ]; then
             APP_PATH="build/ios/Release-iphoneos/Runner.app"
           else
+            echo "找不到 Runner.app，搜索结果："
             find build -name "*.app" -type d
             exit 1
           fi
+          echo "找到：$APP_PATH"
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/Runner.app
           zip -r russian_flashcard_unsigned.ipa Payload
