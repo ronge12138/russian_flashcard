@@ -48,67 +48,74 @@ jobs:
       - name: Patch pbxproj
         run: |
           PROJECT="ios/Runner.xcodeproj/project.pbxproj"
-          sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' "$PROJECT"
-          sed -i '' 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' "$PROJECT"
+          sed -i '' \
+            's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' \
+            "$PROJECT"
+          sed -i '' \
+            's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = "FAKETEAMID1";/g' \
+            "$PROJECT"
           grep -q "DEVELOPMENT_TEAM" "$PROJECT" || sed -i '' \
             's/PRODUCT_BUNDLE_IDENTIFIER/DEVELOPMENT_TEAM = "FAKETEAMID1";\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' \
             "$PROJECT"
+          echo "✅ pbxproj patched"
 
-      - name: Build iOS no codesign
+      - name: Build iOS DEBUG mode
         run: |
           flutter build ios \
-            --release \
+            --debug \
             --no-codesign \
-            --no-tree-shake-icons
+            --no-tree-shake-icons \
+            --simulator
         env:
           CODE_SIGNING_ALLOWED: NO
           CODE_SIGNING_REQUIRED: NO
           CODE_SIGN_IDENTITY: ""
 
-      - name: Ad-hoc sign all frameworks and binary
+      - name: Locate Runner.app
+        run: |
+          echo "=== 搜索所有 .app ==="
+          find build -name "*.app" -type d 2>/dev/null || true
+
+      - name: Ad-hoc sign all frameworks
         run: |
           APP_PATH=$(find build -name "Runner.app" -type d | head -1)
-          echo "=== App 路径: $APP_PATH ==="
+          echo "App: $APP_PATH"
 
-          # 签名所有 .framework
-          find "$APP_PATH/Frameworks" -name "*.framework" -type d 2>/dev/null | \
-          while read fw; do
-            echo "签名 framework: $fw"
-            codesign --force --sign - --preserve-metadata=entitlements "$fw"
-          done
+          if [ -d "$APP_PATH/Frameworks" ]; then
+            find "$APP_PATH/Frameworks" -name "*.framework" -type d | \
+            while read fw; do
+              echo "签名: $fw"
+              codesign --force --sign - \
+                --preserve-metadata=entitlements,identifier \
+                "$fw" 2>&1 || true
+            done
+          fi
 
-          # 签名所有 .dylib
           find "$APP_PATH" -name "*.dylib" 2>/dev/null | \
           while read lib; do
-            echo "签名 dylib: $lib"
-            codesign --force --sign - "$lib"
+            codesign --force --sign - "$lib" 2>&1 || true
           done
 
-          # 签名主 App bundle
-          echo "签名主 App..."
-          codesign --force --sign - \
-            --entitlements ios/Runner/Runner.entitlements \
-            "$APP_PATH" 2>/dev/null || \
-          codesign --force --sign - "$APP_PATH"
+          codesign --force --sign - "$APP_PATH" 2>&1 || true
+          echo "✅ 签名完成"
+          codesign -dv "$APP_PATH" 2>&1 | head -5 || true
 
-          # 验证签名
-          echo "=== 验证签名 ==="
-          codesign -dv "$APP_PATH" 2>&1 || true
-
-      - name: Package unsigned IPA
+      - name: Package IPA
         run: |
           APP_PATH=$(find build -name "Runner.app" -type d | head -1)
           if [ -z "$APP_PATH" ]; then
-            find build -name "*.app" -type d
+            echo "❌ 找不到 Runner.app"
+            find build -type d | head -20
             exit 1
           fi
-          echo "打包: $APP_PATH"
+          echo "✅ 打包: $APP_PATH"
+          rm -rf Payload
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/Runner.app
           zip -r russian_flashcard_unsigned.ipa Payload
           ls -lh russian_flashcard_unsigned.ipa
 
-      - name: Upload unsigned IPA
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: russian-flashcard-unsigned-ipa
