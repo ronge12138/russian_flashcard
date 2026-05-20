@@ -54,10 +54,10 @@ jobs:
             's/PRODUCT_BUNDLE_IDENTIFIER/DEVELOPMENT_TEAM = "FAKETEAMID1";\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' \
             "$PROJECT"
 
-      - name: Build iOS profile mode
+      - name: Build iOS no codesign
         run: |
           flutter build ios \
-            --profile \
+            --release \
             --no-codesign \
             --no-tree-shake-icons
         env:
@@ -65,12 +65,35 @@ jobs:
           CODE_SIGNING_REQUIRED: NO
           CODE_SIGN_IDENTITY: ""
 
-      - name: Verify bundle
+      - name: Ad-hoc sign all frameworks and binary
         run: |
           APP_PATH=$(find build -name "Runner.app" -type d | head -1)
-          echo "App: $APP_PATH"
-          ls -la "$APP_PATH/Frameworks/" 2>/dev/null || echo "no Frameworks"
-          ls "$APP_PATH/flutter_assets/" 2>/dev/null | head -5
+          echo "=== App 路径: $APP_PATH ==="
+
+          # 签名所有 .framework
+          find "$APP_PATH/Frameworks" -name "*.framework" -type d 2>/dev/null | \
+          while read fw; do
+            echo "签名 framework: $fw"
+            codesign --force --sign - --preserve-metadata=entitlements "$fw"
+          done
+
+          # 签名所有 .dylib
+          find "$APP_PATH" -name "*.dylib" 2>/dev/null | \
+          while read lib; do
+            echo "签名 dylib: $lib"
+            codesign --force --sign - "$lib"
+          done
+
+          # 签名主 App bundle
+          echo "签名主 App..."
+          codesign --force --sign - \
+            --entitlements ios/Runner/Runner.entitlements \
+            "$APP_PATH" 2>/dev/null || \
+          codesign --force --sign - "$APP_PATH"
+
+          # 验证签名
+          echo "=== 验证签名 ==="
+          codesign -dv "$APP_PATH" 2>&1 || true
 
       - name: Package unsigned IPA
         run: |
@@ -79,6 +102,7 @@ jobs:
             find build -name "*.app" -type d
             exit 1
           fi
+          echo "打包: $APP_PATH"
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/Runner.app
           zip -r russian_flashcard_unsigned.ipa Payload
