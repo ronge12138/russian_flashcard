@@ -1,61 +1,830 @@
 ﻿<!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-  <base href="$FLUTTER_BASE_HREF">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="俄语闪卡">
-  <meta name="theme-color" content="#0F0F1A">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="manifest" href="manifest.json">
-  <title>俄语闪卡 Русский</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; background-color: #0F0F1A; overflow: hidden; }
-    #loading {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: #0F0F1A;
-      display: flex; flex-direction: column;
-      justify-content: center; align-items: center;
-      color: white; font-family: -apple-system, sans-serif; z-index: 9999;
-    }
-    .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid rgba(92,133,214,0.3);
-      border-top-color: #5C85D6;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 16px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="俄语闪卡">
+<meta name="theme-color" content="#0F0F1A">
+<link rel="apple-touch-icon" href="icons/Icon-192.png">
+<link rel="manifest" href="manifest.json">
+<title>俄语闪卡 Русский</title>
+<style>
+:root {
+  --bg: #0F0F1A;
+  --card-front: #1C1C2E;
+  --card-back: #162032;
+  --accent: #5C85D6;
+  --accent-light: #90CAF9;
+  --text: #FFFFFF;
+  --muted: #8A8AA0;
+  --btn-hard: #E05C5C;
+  --btn-good: #4CAF8A;
+  --btn-easy: #5C85D6;
+  --border: rgba(255,255,255,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; background:var(--bg); color:var(--text); font-family:-apple-system,sans-serif; overflow:hidden; }
+
+/* ── 页面切换 ── */
+.page { display:none; height:100%; flex-direction:column; }
+.page.active { display:flex; }
+
+/* ── 顶栏 ── */
+.topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; padding-top:max(12px, env(safe-area-inset-top));
+  background:transparent; flex-shrink:0;
+}
+.topbar-title { font-size:17px; font-weight:600; }
+.topbar-actions { display:flex; gap:8px; }
+.icon-btn {
+  width:36px; height:36px; border:none; background:transparent;
+  color:var(--text); font-size:20px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:10px;
+}
+.icon-btn:active { background:rgba(255,255,255,0.1); }
+
+/* ── 统计栏 ── */
+.stats-bar {
+  display:flex; margin:0 16px 12px;
+  background:var(--card-front); border-radius:14px;
+  padding:10px 0; flex-shrink:0;
+}
+.stat-item {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; gap:3px;
+}
+.stat-item + .stat-item { border-left:1px solid var(--border); }
+.stat-icon { font-size:16px; }
+.stat-value { font-size:18px; font-weight:700; }
+.stat-label { font-size:11px; color:var(--muted); }
+
+/* ── 闪卡区域 ── */
+.card-area {
+  flex:1; display:flex; align-items:center;
+  justify-content:center; padding:0 16px;
+  overflow:hidden;
+}
+.card-scene {
+  width:100%; max-width:400px;
+  perspective:1000px; cursor:pointer;
+}
+.card-inner {
+  position:relative; width:100%; min-height:460px;
+  transform-style:preserve-3d;
+  transition:transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+.card-inner.flipped { transform:rotateY(180deg); }
+.card-face {
+  position:absolute; width:100%; min-height:460px;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  border-radius:24px; padding:28px;
+  display:flex; flex-direction:column;
+}
+.card-front-face {
+  background:var(--card-front);
+  border:1px solid rgba(255,255,255,0.06);
+  box-shadow:0 12px 30px rgba(0,0,0,0.5);
+  justify-content:center; align-items:center;
+  gap:16px;
+}
+.card-back-face {
+  background:var(--card-back);
+  border:1px solid rgba(92,133,214,0.2);
+  box-shadow:0 12px 30px rgba(0,0,0,0.5);
+  transform:rotateY(180deg);
+}
+.card-word {
+  font-size:46px; font-weight:700;
+  text-align:center; line-height:1.2;
+  letter-spacing:1px;
+}
+.card-hint { color:var(--muted); font-size:13px; text-align:center; }
+.card-hint-row { display:flex; align-items:center; gap:6px; }
+.speak-btn {
+  background:none; border:none; color:var(--accent-light);
+  font-size:24px; cursor:pointer; padding:4px;
+}
+.speak-btn:active { opacity:0.6; }
+
+/* 背面 */
+.back-word-row {
+  display:flex; align-items:center; gap:8px; margin-bottom:4px;
+}
+.back-word { font-size:26px; font-weight:700; }
+.back-phonetic { color:var(--accent-light); font-style:italic; font-size:14px; margin-bottom:12px; }
+.divider { height:1px; background:var(--border); margin:12px 0; }
+.back-meaning { font-size:22px; font-weight:600; margin-bottom:14px; }
+.pos-tag {
+  background:rgba(92,133,214,0.2); color:var(--accent);
+  font-size:12px; padding:3px 8px; border-radius:6px;
+  margin-left:auto; flex-shrink:0;
+}
+.example {
+  background:rgba(255,255,255,0.05); border:1px solid var(--border);
+  border-radius:12px; padding:10px; margin-bottom:8px;
+}
+.example-ru { color:var(--accent-light); font-size:13px; line-height:1.5; }
+.example-zh { color:var(--muted); font-size:12px; margin-top:3px; }
+.examples-area { flex:1; overflow-y:auto; }
+
+/* 反馈按钮 */
+.review-btns {
+  display:flex; gap:8px; margin-top:14px; flex-shrink:0;
+}
+.review-btn {
+  flex:1; padding:11px 0; border-radius:12px; border:none;
+  font-size:13px; font-weight:600; cursor:pointer;
+  transition:opacity 0.15s;
+}
+.review-btn:active { opacity:0.7; }
+.btn-hard { background:rgba(224,92,92,0.18); color:var(--btn-hard); border:1px solid rgba(224,92,92,0.4); }
+.btn-good { flex:2; background:rgba(76,175,138,0.18); color:var(--btn-good); border:1px solid rgba(76,175,138,0.4); }
+.btn-easy { background:rgba(92,133,214,0.18); color:var(--btn-easy); border:1px solid rgba(92,133,214,0.4); }
+
+/* 空状态 */
+.empty-state {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:12px; padding:40px;
+}
+.empty-emoji { font-size:64px; }
+.empty-title { font-size:20px; font-weight:700; }
+.empty-sub { color:var(--muted); font-size:14px; text-align:center; }
+.outline-btn {
+  margin-top:20px; padding:12px 28px;
+  border:1px solid var(--accent); border-radius:12px;
+  background:transparent; color:var(--accent);
+  font-size:15px; cursor:pointer;
+}
+
+/* ── 加词页 ── */
+.page-content { flex:1; overflow-y:auto; padding:16px; }
+.search-row { display:flex; gap:10px; margin-bottom:20px; }
+.search-input {
+  flex:1; background:var(--card-front); border:none;
+  border-radius:14px; padding:14px 16px;
+  color:var(--text); font-size:16px; outline:none;
+}
+.search-input:focus { outline:2px solid var(--accent); }
+.search-input::placeholder { color:var(--muted); }
+.search-btn {
+  width:50px; height:50px; border-radius:14px;
+  background:var(--accent); border:none; color:#fff;
+  font-size:20px; cursor:pointer; flex-shrink:0;
+}
+.search-btn:active { opacity:0.8; }
+.search-btn:disabled { opacity:0.5; }
+
+.result-card {
+  background:var(--card-back); border-radius:20px;
+  border:1px solid rgba(92,133,214,0.3); padding:22px;
+  margin-bottom:16px;
+}
+.result-word-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.result-word { font-size:34px; font-weight:700; flex:1; }
+.result-phonetic { color:var(--accent-light); font-style:italic; font-size:14px; margin-bottom:10px; }
+.result-meaning { font-size:20px; font-weight:600; margin:12px 0; }
+
+.category-label { color:var(--muted); font-size:13px; margin-bottom:8px; }
+.category-chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.chip {
+  padding:7px 14px; border-radius:20px; font-size:13px;
+  border:1px solid rgba(255,255,255,0.1); background:var(--card-front);
+  color:var(--muted); cursor:pointer; transition:all 0.2s;
+}
+.chip.selected {
+  background:rgba(92,133,214,0.2); color:var(--accent);
+  border-color:var(--accent);
+}
+
+.save-btn {
+  width:100%; padding:15px; border-radius:16px;
+  background:var(--accent); border:none; color:#fff;
+  font-size:16px; font-weight:600; cursor:pointer;
+}
+.save-btn:active { opacity:0.8; }
+.save-btn.saved {
+  background:rgba(76,175,138,0.2); color:var(--btn-good);
+  border:1px solid var(--btn-good);
+}
+.save-btn:disabled { opacity:0.5; }
+
+.loading-card {
+  background:var(--card-front); border-radius:20px;
+  padding:40px; text-align:center; margin-bottom:16px;
+}
+.spinner {
+  width:36px; height:36px; border-radius:50%;
+  border:3px solid rgba(92,133,214,0.3);
+  border-top-color:var(--accent);
+  animation:spin 0.8s linear infinite;
+  margin:0 auto 14px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.error-card {
+  background:rgba(224,92,92,0.1); border:1px solid rgba(224,92,92,0.4);
+  border-radius:14px; padding:14px; margin-bottom:16px;
+  color:var(--btn-hard); font-size:14px; display:flex; gap:10px;
+}
+
+/* ── 设置页 ── */
+.settings-section { margin-bottom:28px; }
+.section-title { font-size:16px; font-weight:700; margin-bottom:14px; }
+.field-label { color:var(--muted); font-size:13px; margin-bottom:6px; }
+.field-label span { color:var(--btn-hard); }
+.settings-input {
+  width:100%; background:var(--card-front); border:none;
+  border-radius:12px; padding:13px 16px; color:var(--text);
+  font-size:15px; outline:none; margin-bottom:12px;
+  font-family:monospace;
+}
+.settings-input:focus { outline:2px solid var(--accent); }
+.tip-box {
+  background:rgba(92,133,214,0.08); border:1px solid rgba(92,133,214,0.2);
+  border-radius:10px; padding:12px; margin-bottom:14px;
+  font-size:12px; color:var(--muted); line-height:1.6;
+}
+.tip-box strong { color:var(--accent); }
+.model-chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.settings-save-btn {
+  padding:12px 24px; background:var(--accent); border:none;
+  border-radius:12px; color:#fff; font-size:15px;
+  font-weight:600; cursor:pointer;
+}
+.about-card {
+  background:var(--card-front); border-radius:14px; padding:16px;
+}
+.about-row {
+  display:flex; justify-content:space-between;
+  padding:7px 0; border-bottom:1px solid var(--border);
+  font-size:14px;
+}
+.about-row:last-child { border-bottom:none; }
+.about-row span:first-child { color:var(--muted); }
+
+/* ── Toast ── */
+.toast {
+  position:fixed; bottom:40px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:rgba(30,30,50,0.95); color:#fff; padding:12px 20px;
+  border-radius:12px; font-size:14px; opacity:0;
+  transition:all 0.3s; z-index:9999; white-space:nowrap;
+  backdrop-filter:blur(10px);
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ── 底部安全区 ── */
+.safe-bottom { height:max(16px, env(safe-area-inset-bottom)); flex-shrink:0; }
+</style>
 </head>
 <body>
-  <div id="loading">
-    <div class="spinner"></div>
-    <p style="color:#8A8AA0;font-size:14px">加载中...</p>
+
+<!-- ══════════════════════════════════════
+     学习页
+══════════════════════════════════════ -->
+<div class="page active" id="page-study">
+  <div class="topbar">
+    <span class="topbar-title">🇷🇺 俄语单词</span>
+    <div class="topbar-actions">
+      <button class="icon-btn" onclick="goPage('page-settings')" title="设置">⚙️</button>
+      <button class="icon-btn" onclick="goPage('page-add')" title="加词">➕</button>
+      <span id="study-progress" style="color:var(--muted);font-size:13px;line-height:36px;padding-right:4px"></span>
+    </div>
   </div>
-  <script>
-    window.addEventListener('flutter-first-frame', function() {
-      var el = document.getElementById('loading');
-      if (el) el.style.display = 'none';
+
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-icon" style="color:var(--btn-hard)">📥</span>
+      <span class="stat-value" id="stat-due" style="color:var(--btn-hard)">0</span>
+      <span class="stat-label">待复习</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon" style="color:var(--btn-good)">🎓</span>
+      <span class="stat-value" id="stat-learning" style="color:var(--btn-good)">0</span>
+      <span class="stat-label">学习中</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon" style="color:var(--accent)">🏆</span>
+      <span class="stat-value" id="stat-mastered" style="color:var(--accent)">0</span>
+      <span class="stat-label">已掌握</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon" style="color:var(--muted)">📚</span>
+      <span class="stat-value" id="stat-total" style="color:var(--muted)">0</span>
+      <span class="stat-label">总词数</span>
+    </div>
+  </div>
+
+  <div class="card-area" id="card-area">
+    <!-- 卡片动态插入 -->
+  </div>
+  <div class="safe-bottom"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     加词页
+══════════════════════════════════════ -->
+<div class="page" id="page-add">
+  <div class="topbar">
+    <button class="icon-btn" onclick="goPage('page-study')">◀</button>
+    <span class="topbar-title">添加单词</span>
+    <div style="width:36px"></div>
+  </div>
+  <div class="page-content" id="add-content">
+    <div class="search-row">
+      <input class="search-input" id="search-input" type="text"
+        placeholder="输入俄语单词，如 привет"
+        onkeydown="if(event.key==='Enter')lookupWord()">
+      <button class="search-btn" id="search-btn" onclick="lookupWord()">✨</button>
+    </div>
+    <div id="add-result"></div>
+  </div>
+  <div class="safe-bottom"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     设置页
+══════════════════════════════════════ -->
+<div class="page" id="page-settings">
+  <div class="topbar">
+    <button class="icon-btn" onclick="goPage('page-study')">◀</button>
+    <span class="topbar-title">设置</span>
+    <button class="icon-btn" onclick="saveSettings()" style="color:var(--accent);font-size:15px;font-weight:600;width:auto;padding:0 8px">保存</button>
+  </div>
+  <div class="page-content">
+    <div class="settings-section">
+      <div class="section-title">🤖 AI 服务配置</div>
+      <div class="field-label">API Key <span>*</span></div>
+      <input class="settings-input" id="cfg-apikey" type="password" placeholder="输入 DeepSeek / OpenAI API Key">
+      <div class="tip-box">
+        <strong>💡 获取 API Key</strong><br>
+        DeepSeek：platform.deepseek.com → API Keys<br>
+        OpenAI：platform.openai.com → API Keys
+      </div>
+      <div class="field-label">Base URL</div>
+      <input class="settings-input" id="cfg-baseurl" type="text" placeholder="https://api.deepseek.com" style="font-family:-apple-system,sans-serif">
+      <div class="field-label">模型名称</div>
+      <input class="settings-input" id="cfg-model" type="text" placeholder="deepseek-chat" style="font-family:-apple-system,sans-serif">
+      <div class="model-chips">
+        <div class="chip" onclick="setModel('deepseek-chat')">deepseek-chat</div>
+        <div class="chip" onclick="setModel('gpt-4o-mini')">gpt-4o-mini</div>
+        <div class="chip" onclick="setModel('gpt-4o')">gpt-4o</div>
+      </div>
+      <button class="settings-save-btn" onclick="saveSettings()">保存设置</button>
+    </div>
+    <div class="settings-section">
+      <div class="section-title">ℹ️ 关于</div>
+      <div class="about-card">
+        <div class="about-row"><span>应用名称</span><span>俄语闪卡 Русский</span></div>
+        <div class="about-row"><span>版本</span><span>2.0.0</span></div>
+        <div class="about-row"><span>数据库</span><span>IndexedDB（本地）</span></div>
+        <div class="about-row"><span>AI 引擎</span><span>DeepSeek / OpenAI</span></div>
+        <div class="about-row"><span>记忆算法</span><span>艾宾浩斯间隔重复</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="safe-bottom"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  常量
+// ══════════════════════════════════════════════════════
+const SRS_INTERVALS = [5, 30, 720, 1440, 2880, 5760, 10080, 21600];
+const DB_NAME = 'ruflash_db';
+const DB_VER  = 1;
+const STORE   = 'words';
+
+// ══════════════════════════════════════════════════════
+//  IndexedDB
+// ══════════════════════════════════════════════════════
+let db;
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(STORE)) {
+        const s = d.createObjectStore(STORE, { keyPath: 'id' });
+        s.createIndex('nextReviewAt', 'nextReviewAt');
+        s.createIndex('masteryStatus', 'masteryStatus');
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+function dbTx(mode) {
+  return db.transaction(STORE, mode).objectStore(STORE);
+}
+function dbGetAll() {
+  return new Promise((res, rej) => {
+    const r = dbTx('readonly').getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror   = () => rej(r.error);
+  });
+}
+function dbPut(card) {
+  return new Promise((res, rej) => {
+    const r = dbTx('readwrite').put(card);
+    r.onsuccess = () => res();
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  单词模型
+// ══════════════════════════════════════════════════════
+function stripAccents(t) { return t.replace(/\u0301/g, ''); }
+
+function createCard(w) {
+  const now = Date.now();
+  return {
+    id:           now.toString() + Math.random().toString(36).slice(2),
+    word:         w.word,
+    wordForTts:   stripAccents(w.word),
+    phonetic:     w.phonetic,
+    meaning:      w.meaning,
+    partOfSpeech: w.partOfSpeech || '',
+    examplesRu:   w.examplesRu || [],
+    examplesZh:   w.examplesZh || [],
+    category:     w.category || 'custom',
+    reviewStage:  0,
+    nextReviewAt: now,
+    easeFactor:   2.5,
+    reviewCount:  0,
+    masteryStatus:'newWord',
+    isStarred:    false,
+    createdAt:    now,
+    lastReviewedAt: 0,
+  };
+}
+
+function computeMastery(c) {
+  if (c.reviewCount === 0) return 'newWord';
+  if (c.reviewStage <= 1)  return 'learning';
+  if (c.reviewStage >= 6)  return 'mastered';
+  return 'reviewing';
+}
+
+// ══════════════════════════════════════════════════════
+//  SRS 引擎
+// ══════════════════════════════════════════════════════
+function nextTime(stage, ease) {
+  const base = SRS_INTERVALS[Math.min(stage, SRS_INTERVALS.length-1)];
+  const mult = stage >= 3 ? ease : 1.0;
+  return Date.now() + Math.round(base * mult) * 60000;
+}
+
+async function processReview(card, result) {
+  const MIN_EASE = 1.3, MAX_EASE = 3.0;
+  card.reviewCount++;
+  card.lastReviewedAt = Date.now();
+  if (result === 'hard') {
+    card.reviewStage = 0;
+    card.easeFactor  = Math.max(MIN_EASE, card.easeFactor - 0.2);
+    card.nextReviewAt = nextTime(0, card.easeFactor);
+  } else if (result === 'good') {
+    card.reviewStage  = Math.min(card.reviewStage + 1, SRS_INTERVALS.length-1);
+    card.easeFactor   = Math.min(MAX_EASE, card.easeFactor + 0.05);
+    card.nextReviewAt = nextTime(card.reviewStage, card.easeFactor);
+  } else {
+    card.reviewStage  = Math.min(card.reviewStage + 2, SRS_INTERVALS.length-1);
+    card.easeFactor   = Math.min(MAX_EASE, card.easeFactor + 0.15);
+    card.nextReviewAt = nextTime(card.reviewStage, card.easeFactor);
+  }
+  card.masteryStatus = computeMastery(card);
+  await dbPut(card);
+}
+
+// ══════════════════════════════════════════════════════
+//  学习页
+// ══════════════════════════════════════════════════════
+let queue = [], qIdx = 0, cardFlipped = false;
+let touchStartX = 0, touchStartY = 0;
+
+async function loadStudy() {
+  const all  = await dbGetAll();
+  const now  = Date.now();
+  queue = all.filter(c => c.nextReviewAt <= now)
+             .sort((a,b) => a.nextReviewAt - b.nextReviewAt);
+  qIdx = 0;
+  updateStats(all);
+  renderCard();
+}
+
+function updateStats(all) {
+  const now = Date.now();
+  document.getElementById('stat-due').textContent =
+    all.filter(c => c.nextReviewAt <= now).length;
+  document.getElementById('stat-learning').textContent =
+    all.filter(c => c.masteryStatus === 'learning').length;
+  document.getElementById('stat-mastered').textContent =
+    all.filter(c => c.masteryStatus === 'mastered').length;
+  document.getElementById('stat-total').textContent = all.length;
+  const p = document.getElementById('study-progress');
+  p.textContent = queue.length > 0
+    ? `${Math.min(qIdx+1, queue.length)} / ${queue.length}` : '';
+}
+
+function renderCard() {
+  const area = document.getElementById('card-area');
+  const card = queue[qIdx];
+  if (!card) {
+    area.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-emoji">🎉</div>
+        <div class="empty-title">今日复习全部完成！</div>
+        <div class="empty-sub">休息一下，明天继续加油</div>
+        <button class="outline-btn" onclick="loadStudy()">刷新队列</button>
+      </div>`;
+    return;
+  }
+  cardFlipped = false;
+  area.innerHTML = buildCardHTML(card);
+  bindCardEvents(card);
+}
+
+function buildCardHTML(c) {
+  const examples = c.examplesRu.map((ru, i) => `
+    <div class="example">
+      <div class="example-ru">${ru}</div>
+      <div class="example-zh">${c.examplesZh[i] || ''}</div>
+    </div>`).join('');
+
+  return `
+  <div class="card-scene" id="card-scene">
+    <div class="card-inner" id="card-inner">
+      <div class="card-face card-front-face">
+        <div class="card-word">${c.word}</div>
+        <button class="speak-btn" onclick="event.stopPropagation();speak('${c.wordForTts}')">🔊</button>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+          <div class="card-hint card-hint-row">
+            <span>👆</span><span>点击翻转查看释义</span>
+          </div>
+          <div class="card-hint card-hint-row">
+            <span>👈</span><span>左滑不认识 · 右滑认识</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-face card-back-face">
+        <div class="back-word-row">
+          <div class="back-word">${c.word}</div>
+          <button class="speak-btn" onclick="speak('${c.wordForTts}')">🔊</button>
+          <div class="pos-tag">${c.partOfSpeech}</div>
+        </div>
+        <div class="back-phonetic">${c.phonetic}</div>
+        <div class="divider"></div>
+        <div class="back-meaning">${c.meaning}</div>
+        <div class="examples-area">${examples}</div>
+        <div class="review-btns">
+          <button class="review-btn btn-hard" onclick="doReview('hard')">😰 太难</button>
+          <button class="review-btn btn-good" onclick="doReview('good')">🤔 模糊</button>
+          <button class="review-btn btn-easy" onclick="doReview('easy')">⚡ 太简单</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindCardEvents(card) {
+  const scene = document.getElementById('card-scene');
+  if (!scene) return;
+  scene.addEventListener('click', () => {
+    if (!cardFlipped) flipCard();
+  });
+  scene.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  scene.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+      dx > 0 ? doReview('good') : doReview('hard');
+    }
+  }, { passive: true });
+}
+
+function flipCard() {
+  const inner = document.getElementById('card-inner');
+  if (inner) { inner.classList.toggle('flipped'); cardFlipped = true; }
+}
+
+async function doReview(result) {
+  const card = queue[qIdx];
+  if (!card) return;
+  await processReview(card, result);
+  qIdx++;
+  if (qIdx >= queue.length) { await loadStudy(); return; }
+  const all = await dbGetAll();
+  updateStats(all);
+  renderCard();
+}
+
+// ══════════════════════════════════════════════════════
+//  TTS
+// ══════════════════════════════════════════════════════
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ru-RU';
+  u.rate = 0.85;
+  window.speechSynthesis.speak(u);
+}
+
+// ══════════════════════════════════════════════════════
+//  AI 查词
+// ══════════════════════════════════════════════════════
+let currentResult = null;
+let selectedCategory = 'custom';
+const CATEGORIES = {
+  custom:'📁 自定义', daily:'💬 日常用语',
+  travel:'✈️ 旅行', business:'💼 商务', grammar:'📖 语法词'
+};
+const SYSTEM_PROMPT = `你是专业俄语词典助手。用户给你一个俄语单词，严格返回以下JSON，不含任何多余文字或markdown：
+{"word":"带U+0301重音符的俄语原型","phonetic":"[国际音标]","partOfSpeech":"词性缩写","meaning":"中文释义不超过20字","examples":[{"ru":"带重音的俄语例句","zh":"中文翻译"},{"ru":"第二例句","zh":"中文翻译"}]}`;
+
+async function lookupWord() {
+  const input = document.getElementById('search-input');
+  const word = input.value.trim();
+  if (!word) return;
+  const apiKey  = localStorage.getItem('cfg_apikey') || '';
+  const baseUrl = localStorage.getItem('cfg_baseurl') || 'https://api.deepseek.com';
+  const model   = localStorage.getItem('cfg_model')   || 'deepseek-chat';
+  if (!apiKey) { showToast('请先在设置页填写 API Key'); goPage('page-settings'); return; }
+
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true; btn.textContent = '⏳';
+  document.getElementById('add-result').innerHTML =
+    `<div class="loading-card"><div class="spinner"></div><div style="color:var(--muted)">AI 查询中...</div></div>`;
+
+  try {
+    const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model, temperature: 0.1, max_tokens: 600,
+        messages: [
+          { role:'system', content: SYSTEM_PROMPT },
+          { role:'user',   content: `请查询俄语单词：${word}` }
+        ]
+      })
     });
-  </script>
-  <script src="flutter.js" defer></script>
-  <script defer>
-    document.addEventListener("DOMContentLoaded", function() {
-      _flutter.loader.loadEntrypoint({
-        onEntrypointLoaded: async function(engineInitializer) {
-          var appRunner = await engineInitializer.initializeEngine({
-            renderer: 'html'
-          });
-          await appRunner.runApp();
-        }
-      });
-    });
-  </script>
+    if (!resp.ok) {
+      const code = resp.status;
+      throw new Error(code===401 ? 'API Key 无效' : code===429 ? '请求过于频繁' : `服务器错误(${code})`);
+    }
+    const data = await resp.json();
+    let raw = data.choices[0].message.content.trim();
+    raw = raw.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim();
+    const json = JSON.parse(raw);
+    currentResult = {
+      word: json.word, phonetic: json.phonetic,
+      meaning: json.meaning, partOfSpeech: json.partOfSpeech || '',
+      examplesRu: (json.examples||[]).map(e=>e.ru),
+      examplesZh: (json.examples||[]).map(e=>e.zh),
+    };
+    renderResult();
+  } catch(e) {
+    document.getElementById('add-result').innerHTML =
+      `<div class="error-card">❌ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '✨';
+  }
+}
+
+function renderResult() {
+  if (!currentResult) return;
+  const r = currentResult;
+  const examples = r.examplesRu.map((ru,i) => `
+    <div class="example">
+      <div class="example-ru">${ru}</div>
+      <div class="example-zh">${r.examplesZh[i]||''}</div>
+    </div>`).join('');
+  const chips = Object.entries(CATEGORIES).map(([k,v]) =>
+    `<div class="chip ${selectedCategory===k?'selected':''}" onclick="selectCat('${k}')">${v}</div>`
+  ).join('');
+
+  document.getElementById('add-result').innerHTML = `
+    <div class="result-card">
+      <div class="result-word-row">
+        <div class="result-word">${r.word}</div>
+        <button class="speak-btn" onclick="speak('${stripAccents(r.word)}')">🔊</button>
+        <div class="pos-tag">${r.partOfSpeech}</div>
+      </div>
+      <div class="result-phonetic">${r.phonetic}</div>
+      <div class="divider"></div>
+      <div class="result-meaning">${r.meaning}</div>
+      ${examples}
+    </div>
+    <div class="category-label">选择词库分类</div>
+    <div class="category-chips" id="cat-chips">${chips}</div>
+    <button class="save-btn" id="save-btn" onclick="saveWord()">＋ 添加到词库</button>
+  `;
+}
+
+function selectCat(cat) {
+  selectedCategory = cat;
+  document.querySelectorAll('#cat-chips .chip').forEach(c => {
+    c.classList.toggle('selected', c.onclick.toString().includes(`'${cat}'`));
+  });
+}
+
+async function saveWord() {
+  if (!currentResult) return;
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  const card = createCard({ ...currentResult, category: selectedCategory });
+  await dbPut(card);
+  btn.textContent = '✅ 已添加到词库';
+  btn.classList.add('saved');
+  showToast(`「${card.word}」已添加`);
+  await loadStudy();
+}
+
+// ══════════════════════════════════════════════════════
+//  设置
+// ══════════════════════════════════════════════════════
+function loadSettings() {
+  document.getElementById('cfg-apikey').value  = localStorage.getItem('cfg_apikey')  || '';
+  document.getElementById('cfg-baseurl').value = localStorage.getItem('cfg_baseurl') || 'https://api.deepseek.com';
+  document.getElementById('cfg-model').value   = localStorage.getItem('cfg_model')   || 'deepseek-chat';
+}
+
+function saveSettings() {
+  const key = document.getElementById('cfg-apikey').value.trim();
+  if (!key) { showToast('请填写 API Key'); return; }
+  localStorage.setItem('cfg_apikey',  key);
+  localStorage.setItem('cfg_baseurl', document.getElementById('cfg-baseurl').value.trim() || 'https://api.deepseek.com');
+  localStorage.setItem('cfg_model',   document.getElementById('cfg-model').value.trim()   || 'deepseek-chat');
+  showToast('设置已保存 ✅');
+}
+
+function setModel(m) {
+  document.getElementById('cfg-model').value = m;
+}
+
+// ══════════════════════════════════════════════════════
+//  页面切换
+// ══════════════════════════════════════════════════════
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'page-settings') loadSettings();
+  if (id === 'page-add') {
+    currentResult = null;
+    document.getElementById('search-input').value = '';
+    document.getElementById('add-result').innerHTML = '';
+  }
+  if (id === 'page-study') loadStudy();
+}
+
+// ══════════════════════════════════════════════════════
+//  Toast
+// ══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ══════════════════════════════════════════════════════
+//  初始化
+// ══════════════════════════════════════════════════════
+async function init() {
+  await openDB();
+  // 种子数据
+  const all = await dbGetAll();
+  if (all.length === 0) {
+    await dbPut(createCard({
+      word:'приве\u0301т', phonetic:'[prʲɪˈvʲet]',
+      meaning:'你好（非正式）', partOfSpeech:'interj.',
+      examplesRu:['Приве\u0301т, как дела\u0301?','Приве\u0301т! Рад тебя\u0301 ви\u0301деть.'],
+      examplesZh:['你好，最近怎么样？','嗨！很高兴见到你。'],
+      category:'daily'
+    }));
+    await dbPut(createCard({
+      word:'спаси\u0301бо', phonetic:'[spɐˈsʲibə]',
+      meaning:'谢谢', partOfSpeech:'interj.',
+      examplesRu:['Большо\u0301е спаси\u0301бо!','Спаси\u0301бо, всё хорошо\u0301.'],
+      examplesZh:['非常感谢！','谢谢，一切都好。'],
+      category:'daily'
+    }));
+  }
+  loadStudy();
+}
+
+init();
+</script>
 </body>
 </html>
