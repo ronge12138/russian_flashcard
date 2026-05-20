@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-  <base href="/">
+  <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,23 +13,14 @@
   <title>俄语闪卡 Русский</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { 
-      height: 100%; 
-      background-color: #0F0F1A;
-      overflow: hidden;
-    }
+    html, body { height: 100%; background-color: #0F0F1A; overflow: hidden; }
     #loading {
-      position: fixed;
-      top: 0; left: 0;
+      position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       background: #0F0F1A;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      color: white;
-      font-family: -apple-system, sans-serif;
-      z-index: 9999;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      color: white; font-family: -apple-system, sans-serif; z-index: 9999;
     }
     .spinner {
       width: 40px; height: 40px;
@@ -49,28 +40,21 @@
   </div>
   <script>
     window.addEventListener('flutter-first-frame', function() {
-      var loading = document.getElementById('loading');
-      if (loading) loading.style.display = 'none';
+      var el = document.getElementById('loading');
+      if (el) el.style.display = 'none';
     });
   </script>
   <script src="flutter.js" defer></script>
   <script defer>
     document.addEventListener("DOMContentLoaded", function() {
-      if (typeof _flutter !== 'undefined') {
-        _flutter.loader.loadEntrypoint({
-          onEntrypointLoaded: async function(engineInitializer) {
-            var appRunner = await engineInitializer.initializeEngine({
-              renderer: 'html'
-            });
-            await appRunner.runApp();
-          }
-        });
-      } else {
-        // 降级方案：直接加载 main.dart.js
-        var script = document.createElement('script');
-        script.src = 'main.dart.js';
-        document.body.appendChild(script);
-      }
+      _flutter.loader.loadEntrypoint({
+        onEntrypointLoaded: async function(engineInitializer) {
+          var appRunner = await engineInitializer.initializeEngine({
+            renderer: 'html'
+          });
+          await appRunner.runApp();
+        }
+      });
     });
   </script>
 </body>
