@@ -289,6 +289,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
   <div class="topbar">
     <span class="topbar-title">🇷🇺 俄语单词</span>
     <div class="topbar-actions">
+      <button class="icon-btn" onclick="goPage('page-library')" title="词库">📚</button>
       <button class="icon-btn" onclick="goPage('page-settings')" title="设置">⚙️</button>
       <button class="icon-btn" onclick="goPage('page-add')" title="加词">➕</button>
       <span id="study-progress" style="color:var(--muted);font-size:13px;line-height:36px;padding-right:4px"></span>
@@ -318,6 +319,9 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
     </div>
   </div>
 
+  <div style="padding:0 16px 8px;overflow-x:auto;white-space:nowrap;flex-shrink:0">
+    <div id="study-cat-filter" style="display:inline-flex;gap:8px;padding-bottom:4px"></div>
+  </div>
   <div class="card-area" id="card-area">
     <!-- 卡片动态插入 -->
   </div>
@@ -520,13 +524,125 @@ async function processReview(card, result) {
 let queue = [], qIdx = 0, cardFlipped = false;
 let touchStartX = 0, touchStartY = 0;
 
+
+// ══════════════════════════════════════════════════════
+//  词库管理
+// ══════════════════════════════════════════════════════
+let currentLibraryCat = 'all';
+let currentStudyCat   = 'all';
+
+async function loadLibrary() {
+  const all  = await dbGetAll();
+  const cats = getAllCategories();
+
+  // 分类筛选器
+  const filter = document.getElementById('library-cat-filter');
+  if (filter) {
+    const counts = {};
+    all.forEach(c => { counts[c.category] = (counts[c.category]||0)+1; });
+    let btns = `<button class="chip ${currentLibraryCat==='all'?'selected':''}"
+      onclick="setLibraryCat('all')">全部 (${all.length})</button>`;
+    Object.entries(cats).forEach(([k,v]) => {
+      if (counts[k]) btns += `<button class="chip ${currentLibraryCat===k?'selected':''}"
+        onclick="setLibraryCat('${k}')">${v} (${counts[k]})</button>`;
+    });
+    filter.innerHTML = btns;
+  }
+
+  // 单词列表
+  const list = document.getElementById('library-list');
+  if (!list) return;
+  const filtered = currentLibraryCat === 'all'
+    ? all : all.filter(c => c.category === currentLibraryCat);
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">暂无单词</div>';
+    return;
+  }
+
+  filtered.sort((a,b) => b.createdAt - a.createdAt);
+  list.innerHTML = filtered.map(card => {
+    const cat = getAllCategories()[card.category] || card.category;
+    const stage = ['新词','学习中','学习中','复习中','复习中','复习中','已掌握','已掌握','已掌握'][card.reviewStage] || '学习中';
+    const stageColor = card.masteryStatus==='mastered' ? 'var(--btn-good)'
+      : card.masteryStatus==='newWord' ? 'var(--muted)' : 'var(--accent)';
+    return `<div style="background:var(--card-front);border-radius:14px;padding:14px 16px;
+      margin-bottom:10px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:20px;font-weight:700">${card.word}</span>
+          <button onclick="speak('${card.wordForTts}')"
+            style="background:none;border:none;color:var(--accent);font-size:14px;cursor:pointer">🔊</button>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">${card.meaning}</div>
+        <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+          <span style="font-size:11px;background:rgba(92,133,214,0.15);color:var(--accent);
+            padding:2px 8px;border-radius:10px">${cat}</span>
+          <span style="font-size:11px;color:${stageColor}">${stage}</span>
+          <span style="font-size:11px;color:var(--muted)">复习${card.reviewCount}次</span>
+        </div>
+      </div>
+      <button onclick="deleteWord('${card.id}')"
+        style="background:rgba(224,92,92,0.15);border:1px solid rgba(224,92,92,0.3);
+        color:var(--btn-hard);border-radius:10px;padding:8px 12px;cursor:pointer;
+        font-size:13px;flex-shrink:0">删除</button>
+    </div>`;
+  }).join('');
+}
+
+function setLibraryCat(cat) {
+  currentLibraryCat = cat;
+  loadLibrary();
+}
+
+async function deleteWord(id) {
+  if (!confirm('确定删除这个单词？')) return;
+  await new Promise((res,rej) => {
+    const r = dbTx('readwrite').delete(id);
+    r.onsuccess = res; r.onerror = rej;
+  });
+  showToast('已删除');
+  loadLibrary();
+  loadStudy();
+}
+
+// ── 学习页分类筛选 ──
+async function renderStudyCatFilter() {
+  const all  = await dbGetAll();
+  const cats = getAllCategories();
+  const now  = Date.now();
+  const filter = document.getElementById('study-cat-filter');
+  if (!filter) return;
+
+  const dueCounts = {};
+  all.filter(c => c.nextReviewAt <= now).forEach(c => {
+    dueCounts[c.category] = (dueCounts[c.category]||0)+1;
+  });
+  const totalDue = all.filter(c => c.nextReviewAt <= now).length;
+
+  let btns = `<button class="chip ${currentStudyCat==='all'?'selected':''}"
+    onclick="setStudyCat('all')">全部 (${totalDue})</button>`;
+  Object.entries(cats).forEach(([k,v]) => {
+    if (dueCounts[k]) btns += `<button class="chip ${currentStudyCat===k?'selected':''}"
+      onclick="setStudyCat('${k}')">${v} (${dueCounts[k]})</button>`;
+  });
+  filter.innerHTML = btns;
+}
+
+function setStudyCat(cat) {
+  currentStudyCat = cat;
+  loadStudy();
+}
+
 async function loadStudy() {
   const all  = await dbGetAll();
   const now  = Date.now();
-  queue = all.filter(c => c.nextReviewAt <= now)
+  const due  = all.filter(c => c.nextReviewAt <= now);
+  queue = (currentStudyCat === 'all' ? due : due.filter(c => c.category === currentStudyCat))
              .sort((a,b) => a.nextReviewAt - b.nextReviewAt);
   qIdx = 0;
   updateStats(all);
+  renderStudyCatFilter();
   renderCard();
 }
 
@@ -885,6 +1001,7 @@ function goPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if (id === 'page-settings') loadSettings();
+  if (id === 'page-library') { currentLibraryCat = 'all'; loadLibrary(); }
   if (id === 'page-add') {
     currentResult = null;
     document.getElementById('search-input').value = '';
