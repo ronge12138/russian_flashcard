@@ -35,19 +35,11 @@ jobs:
           flutter --version
           xcodebuild -version
 
-      - name: Disable Swift Package Manager
-        run: flutter config --no-enable-swift-package-manager
-
       - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Generate Isar code
         run: dart run build_runner build --delete-conflicting-outputs
-
-      - name: Create Flutter ephemeral directories
-        run: |
-          mkdir -p ios/Flutter/ephemeral
-          mkdir -p ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage
 
       - name: Install CocoaPods dependencies
         run: |
